@@ -1,0 +1,109 @@
+---
+title: "cleaning_data"
+author: "raiko"
+date: "2024-07-08"
+output:
+  html_document: default
+  pdf_document: default
+editor_options: null
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# CRANミラーを設定
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+install.packages("tidyverse")
+install.packages("lubridate")
+library(tidyverse)
+library(lubridate)
+
+csv_directory <- "/Users/raiko.funakami/Downloads/Syclistic_Trip_Data/CSV_Files"
+csv_files <- list.files(csv_directory, pattern = "*.csv", full.names = TRUE)
+all_data <- csv_files %>% 
+  map_df(~ read_csv(.))
+```
+
+# データの取得
+
+case_study で示されるWebサイトから１２ヶ月分のデータを取得した
+
+## オリジナルのデータ配布先とライセンス
+
+-   [ソースコード](https://divvy-tripdata.s3.amazonaws.com/index.html)
+-   [License](https://divvybikes.com/data-license-agreement)
+
+## 使用したデータファイル
+
+-   202307-divvy-tripdata.zip
+-   202308-divvy-tripdata.zip
+-   202310-divvy-tripdata.zip
+-   202311-divvy-tripdata.zip
+-   202312-divvy-tripdata.zip
+-   202401-divvy-tripdata.zip
+-   202402-divvy-tripdata.zip
+-   202403-divvy-tripdata.zip
+-   202404-divvy-tripdata.zip
+-   202405-divvy-tripdata.zip
+-   202406-divvy-tripdata.zip
+
+# データの整合性の確認
+
+取得したデータは合計で570万件以上あるため整合性をR言語を使って確認した
+
+## データサマリー
+
+```{r summary, echo=FALSE}
+summary_output <- summary(all_data)
+knitr::kable(summary_output, caption = "データの概要")
+```
+
+## データの整合性の確認
+取得したデータの整合性を確認する
+
+### 欠損値の確認
+```{r missing_values, echo=FALSE}
+# データの整合性を下記の内容について確認する
+# - 概要
+# - 欠損値
+# - 重複行
+# - ライド時間の異常値
+
+missing_values <- all_data %>%
+  summarise_all(~ sum(is.na(.)))
+
+knitr::kable(missing_values, caption = "欠損値の確認")
+```
+
+### 重複行の確認
+```{r duplocate_rows, echo=FALSE}
+duplicate_rows <- all_data %>%
+  duplicated() %>%
+  sum()
+
+cat(paste("重複行の数:", duplicate_rows))
+```
+
+### 異常値の確認
+```{r outliers, echo=FALSE}
+# ライド時間の計算
+all_data <- all_data %>%
+  mutate(ride_length = as.numeric(difftime(ended_at, started_at, units = "mins")))
+
+# 異常値の確認
+abnormal_ride_lengths <- all_data %>%
+  filter(ride_length < 0) %>%
+  nrow()
+
+extremely_long_rides <- all_data %>%
+  filter(ride_length > 1440) %>%
+  nrow()
+
+extremely_short_rides <- all_data %>%
+  filter(ride_length < 1) %>%
+  nrow()
+
+cat(paste("マイナスのライド時間の数:", abnormal_ride_lengths, "\n"))
+cat(paste("極端に長いライド時間の数 (24時間以上):", extremely_long_rides, "\n"))
+cat(paste("極端に短いライド時間の数 (1分未満):", extremely_short_rides, "\n"))
+```
